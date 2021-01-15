@@ -3,6 +3,7 @@ const Node = @This();
 
 tag: ?[]u8 = null,
 text: ?[]u8 = null,
+escape_text: bool = true,
 attributes: std.ArrayListUnmanaged([]u8) = std.ArrayListUnmanaged([]u8){},
 child_nodes: std.ArrayListUnmanaged(Node) = std.ArrayListUnmanaged(Node){},
 pub fn write(self: Node, writer: anytype) @TypeOf(writer).Error!void {
@@ -17,7 +18,20 @@ pub fn write(self: Node, writer: anytype) @TypeOf(writer).Error!void {
     }
     for (self.child_nodes.items) |child| try child.write(writer);
     if (self.child_nodes.items.len == 0) {
-        if (self.text) |text| try writer.print("{s}", .{text});
+        if (self.text) |text| {
+            if (self.escape_text) {
+                for (text) |byte| {
+                    try writer.writeAll(switch(byte) {
+                        '&' => "&amp",
+                        '<' => "&lt",
+                        '>' => "&gt",
+                        else => &[_]u8{byte},
+                    });
+                }
+            } else {
+                try writer.print("{s}", .{text});
+            }
+        }
     }
     if (self.tag) |t| try writer.print("</{s}>", .{t});
 }
